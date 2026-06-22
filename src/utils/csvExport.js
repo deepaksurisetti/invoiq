@@ -1,4 +1,4 @@
-import { formatAmount, getCurrency } from '../data/currencies.js'
+import { getCurrency } from '../data/currencies.js'
 import { calculateTotals, calculateItemAmount } from './calculations.js'
 
 function esc(val) {
@@ -8,22 +8,28 @@ function esc(val) {
   }
   return str
 }
+function row(...cols) { return cols.map(esc).join(',') }
 
-function row(...cols) {
-  return cols.map(esc).join(',')
+/** Unicode-safe amount format for CSV (supports ₹, €, etc. — CSV is UTF-8) */
+function fmtCSV(amount, currencyCode) {
+  const num = parseFloat(amount) || 0
+  const currency = getCurrency(currencyCode)
+  const symbol = currency?.symbol || currencyCode
+  const [intPart, decPart] = num.toFixed(2).split('.')
+  const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return `${symbol}${formatted}.${decPart}`
 }
 
 export function exportCSV(data) {
-  const { type, number, date, dueDate, currency, from, to, items, tax, tax2, discount, shipping, notes, terms, paymentDetails, mode } = data
+  const { type, number, date, dueDate, currency, from, to, items,
+          tax, tax2, discount, shipping, notes, terms, paymentDetails, mode } = data
   const cur = getCurrency(currency)
   const totals = calculateTotals(data)
-  const fmt = (n) => formatAmount(n, currency)
-
+  const fmt = (n) => fmtCSV(n, currency)
   const label = type === 'invoice' ? 'Invoice' : type === 'quote' ? 'Quote' : 'Estimate'
 
   const lines = []
 
-  // Header section
   lines.push(row('Document Type', label))
   lines.push(row('Number', number))
   lines.push(row('Date', date))
@@ -31,19 +37,20 @@ export function exportCSV(data) {
   lines.push(row('Currency', `${currency} (${cur?.symbol})`))
   lines.push(row(''))
 
-  // From / To
   lines.push(row('FROM', 'TO'))
   lines.push(row(from.name, to.name))
   lines.push(row(from.email, to.email))
   lines.push(row(from.phone, to.phone))
   lines.push(row(from.address, to.address))
   if (mode === 'detailed') {
-    lines.push(row(`${from.city}${from.city && from.state ? ', ' : ''}${from.state} ${from.zip}`.trim(), `${to.city}${to.city && to.state ? ', ' : ''}${to.state} ${to.zip}`.trim()))
+    lines.push(row(
+      `${from.city}${from.city && from.state ? ', ' : ''}${from.state} ${from.zip}`.trim(),
+      `${to.city}${to.city && to.state ? ', ' : ''}${to.state} ${to.zip}`.trim()
+    ))
     lines.push(row(from.country, to.country))
   }
   lines.push(row(''))
 
-  // Items header
   if (mode === 'detailed') {
     lines.push(row('Description', 'Qty', 'Rate', 'Discount %', 'Amount'))
   } else {
@@ -60,32 +67,26 @@ export function exportCSV(data) {
   })
 
   lines.push(row(''))
-
-  // Totals
   lines.push(row('Subtotal', fmt(totals.subtotal)))
   if (mode === 'detailed' && totals.discountAmount > 0) {
     const discLabel = discount.type === 'percentage' ? `Discount (${discount.value}%)` : 'Discount'
     lines.push(row(discLabel, `-${fmt(totals.discountAmount)}`))
   }
-  if (totals.taxAmount > 0) {
-    lines.push(row(`${tax.name} (${tax.rate}%)`, fmt(totals.taxAmount)))
-  }
-  if (mode === 'detailed' && tax2.enabled && totals.tax2Amount > 0) {
+  if (totals.taxAmount > 0) lines.push(row(`${tax.name} (${tax.rate}%)`, fmt(totals.taxAmount)))
+  if (mode === 'detailed' && tax2.enabled && totals.tax2Amount > 0)
     lines.push(row(`${tax2.name} (${tax2.rate}%)`, fmt(totals.tax2Amount)))
-  }
-  if (mode === 'detailed' && totals.shippingAmount > 0) {
+  if (mode === 'detailed' && totals.shippingAmount > 0)
     lines.push(row('Shipping', fmt(totals.shippingAmount)))
-  }
   lines.push(row(`TOTAL (${currency})`, fmt(totals.total)))
 
-  // Notes / Terms / Payment
   if (notes) { lines.push(row('')); lines.push(row('Notes', notes)) }
   if (mode === 'detailed') {
     if (terms) { lines.push(row('')); lines.push(row('Terms & Conditions', terms)) }
     if (paymentDetails) { lines.push(row('')); lines.push(row('Payment Details', paymentDetails)) }
   }
 
-  const csvContent = lines.join('\n')
+  // UTF-8 BOM (\ufeff) ensures Excel reads ₹ and other Unicode symbols correctly
+  const csvContent = '\ufeff' + lines.join('\n')
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
