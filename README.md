@@ -8,11 +8,6 @@ This is a personal project demonstrating a basic invoice application interface a
 * **AI-Generated Code:** The codebase was generated with the assistance of Artificial Intelligence. While it serves as a functional prototype, it has not undergone rigorous manual software QA.
 * **No Financial/Legal Guarantee:** The calculations, tax logic, and invoice formatting provided by this application carry no legal or financial warranty. Do not use this tool for official business accounting or tax reporting.
 
-## 🔒 Data Privacy & Architecture
-
-* **No Data Storage:** This is a strictly client-based (frontend-only) application. 
-* **Zero Persistence:** It does not save, transmit, or store any data anywhere. 
-* **Session-Based:** All inputs exist only in your current browser memory and are permanently wiped upon closing or refreshing the tab.
 
 ## 🛑 Security & Cautionary Measures
 
@@ -22,6 +17,7 @@ If you clone, fork, or modify this repository, ensure you adhere to the followin
 2. **Check for Hardcoded Keys:** Ensure no API keys, payment gateway tokens, or cloud credentials are saved anywhere in the source code.
 3. **Verify Math Logic:** Double-check all calculation scripts (subtotals, tax percentages, discounts) manually before relying on any output numbers.
 4. **Environment Variables:** Always use `.env` files for configuration and include them in your `.gitignore` to prevent accidental credential leaks.
+5. **No Data Storage:** This is a strictly client-based (frontend-only) application. 
 
 ## License
 
